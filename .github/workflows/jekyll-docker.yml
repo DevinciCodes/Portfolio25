@@ -1,0 +1,39 @@
+mkdir -p .github/workflows
+cat > .github/workflows/deploy.yml << 'EOF'
+name: Deploy to GitHub Pages
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # If pure static, delete npm lines and instead:
+      # - run: echo "Static site — no build"
+      - run: |
+          if [ -f package-lock.json ] || [ -f pnpm-lock.yaml ] || [ -f yarn.lock ]; then
+            npm ci || true
+            npm run build || true
+          fi
+          # fallback: if no build, publish repo root
+          mkdir -p public && rsync -a --exclude '.git' --exclude 'node_modules' ./ ./public/
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: public }
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/deploy-pages@v4
+EOF
+
+git add .github/workflows/deploy.yml
+git commit -m "Add GitHub Pages workflow"
+git push
